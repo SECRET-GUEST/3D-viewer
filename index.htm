@@ -5,14 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Animation Viewer</title>
 
-  <!--
-    ==============================
-    Styles & Visual Design
-    - Clean dark UI
-    - Floating labels over actors
-    - Copy feedback animation
-    ==============================
-  -->
+
+
+  
   <style>
     /* ===== Base layout & theme ===== */
     html, body {
@@ -104,6 +99,10 @@
       .label button.copied.flash { animation: none; }
     }
   </style>
+
+
+
+  
 </head>
 <body>
   <div id="app">
@@ -126,14 +125,7 @@
   </div>
   <div id="labels"></div>
 
-  <!--
-    ==============================
-    Resilient ESM Loader (GitHub Pages–proof)
-    - Tries unpkg first
-    - Falls back to jsDelivr if needed
-    - No import maps → fewer surprises on Pages / Safari
-    ==============================
-  -->
+
   <script type="module">
     // -------- CDN Module Loader with Fallback --------
     const CDN_PRIMARY = "https://unpkg.com/three@0.160.0";
@@ -463,8 +455,9 @@
       if (files && files.length) loadFiles(files);
     });
 
-    // -------- Boot --------
     init();
+  
   </script>
 </body>
 </html>
+
