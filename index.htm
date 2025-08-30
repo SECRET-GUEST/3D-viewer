@@ -4,34 +4,107 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Animation Viewer</title>
-  <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; background: #0b0f14; color: #d7e2ee; }
-    #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
-    header { display: flex; gap: 12px; align-items: center; padding: 10px 12px; background: #111821; border-bottom: 1px solid #1e2a38; }
-    header h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; color: #eaf2fb; }
-    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .control { display: inline-flex; align-items: center; gap: 6px; background: #0f1620; border: 1px solid #1e2a38; border-radius: 10px; padding: 6px 10px; }
-    .control label { font-size: 12px; color: #99acbf; }
-    .control input[type="range"] { width: 160px; }
-    .control input[type="number"] { width: 72px; background: #0b0f14; color: #eaf2fb; border: 1px solid #243244; border-radius: 6px; padding: 4px 6px; }
-    .btn { cursor: pointer; border: 1px solid #1e2a38; background: #0f1620; color: #eaf2fb; border-radius: 10px; padding: 7px 12px; font-weight: 600; }
-    .btn:active { transform: translateY(1px); }
-    .btn.primary { background: #1c2a3a; border-color: #2b415a; }
-    .file { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed #2b415a; background: #0b1119; padding: 8px 10px; border-radius: 10px; }
-    .file input { display: none; }
-    .file label { cursor: pointer; font-weight: 600; }
-    #drop { position: absolute; inset: 0; border: 2px dashed transparent; border-radius: 16px; transition: border-color 0.2s ease; pointer-events: none; }
-    #drop.drag { border-color: #3a7bd5; background: rgba(58, 123, 213, 0.06); }
-    #stats { margin-left: auto; font-size: 12px; color: #9db2c7; }
-    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-    /* Floating filename labels */
-    #labels { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
-    .label { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; background: rgba(13, 19, 27, 0.8); border: 1px solid #2b415a; border-radius: 8px; padding: 4px 8px; font-size: 12px; color: #d7e2ee; white-space: nowrap; }
-    .label button { margin-left: 8px; font-size: 11px; padding: 2px 6px; background:#1c2a3a; border:1px solid #2b415a; color:#eaf2fb; border-radius:6px; cursor:pointer; }
-    .label a { color:#9ad1ff; text-decoration: none; }
-    .label a:hover { text-decoration: underline; }
-  </style>
+  
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+    background: #0b0f14;
+    color: #d7e2ee;
+  }
+  #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
+  header {
+    display: flex; gap: 12px; align-items: center;
+    padding: 10px 12px; background: #111821; border-bottom: 1px solid #1e2a38;
+  }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; color: #eaf2fb; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .control { display: inline-flex; align-items: center; gap: 6px; background: #0f1620; border: 1px solid #1e2a38; border-radius: 10px; padding: 6px 10px; }
+  .control label { font-size: 12px; color: #99acbf; }
+  .control input[type="range"] { width: 160px; }
+  .control input[type="number"] {
+    width: 72px; background: #0b0f14; color: #eaf2fb;
+    border: 1px solid #243244; border-radius: 6px; padding: 4px 6px;
+  }
+  .btn {
+    cursor: pointer; border: 1px solid #1e2a38; background: #0f1620; color: #eaf2fb;
+    border-radius: 10px; padding: 7px 12px; font-weight: 600;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: #1c2a3a; border-color: #2b415a; }
+  .file {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px dashed #2b415a; background: #0b1119; padding: 8px 10px; border-radius: 10px;
+  }
+  .file input { display: none; }
+  .file label { cursor: pointer; font-weight: 600; }
+  #drop {
+    position: absolute; inset: 0; border: 2px dashed transparent; border-radius: 16px;
+    transition: border-color 0.2s ease; pointer-events: none;
+  }
+  #drop.drag { border-color: #3a7bd5; background: rgba(58, 123, 213, 0.06); }
+  #stats { margin-left: auto; font-size: 12px; color: #9db2c7; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  /* ===== Floating filename badges ===== */
+  #labels {
+    position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+    pointer-events: none; /* allow clicks only on children */
+  }
+  .label {
+    position: absolute; transform: translate(-50%, -50%);
+    pointer-events: auto; background: rgba(13, 19, 27, 0.8);
+    border: 1px solid #2b415a; border-radius: 8px;
+    padding: 4px 8px; font-size: 12px; color: #d7e2ee; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .label a {
+    color: #9ad1ff; text-decoration: none; font-weight: 600;
+  }
+  .label a:hover { text-decoration: underline; }
+  .label button {
+    font-size: 11px; padding: 2px 8px; line-height: 1.6;
+    background: #1c2a3a; border: 1px solid #2b415a; color: #eaf2fb;
+    border-radius: 6px; cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .label button:hover { transform: translateY(-1px); }
+  .label button:active { transform: translateY(0); }
+
+  /* ===== Copy feedback styles ===== */
+  /* Quick green flash + subtle scale when copied */
+  .label button.copied {
+    background: #2b9957 !important;
+    border-color: #2b9957 !important;
+    color: #ffffff !important;
+    transform: scale(1.05);
+  }
+
+  /* Optional: small pulse highlight on the filename text as well */
+  .label a.copied {
+    color: #b4f5c9 !important;
+    text-shadow: 0 0 6px rgba(43, 153, 87, 0.6);
+  }
+
+  /* Short-lived glow animation fallback (if you prefer a keyframe effect) */
+  @keyframes copiedFlash {
+    0% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
+    40% { box-shadow: 0 0 14px rgba(43, 153, 87, 0.7); }
+    100% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
+  }
+  .label button.copied.flash {
+    animation: copiedFlash 300ms ease-in-out;
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .label button, .label button.copied { transition: none; }
+    .label button.copied.flash { animation: none; }
+  }
+</style>
+
 </head>
 <body>
   <div id="app">
@@ -218,22 +291,55 @@
     }
 
     // --- Small UI badge with filename + copy-to-clipboard ---
-    function makeLabel(fileName) {
-      const el = document.createElement('div');
-      el.className = 'label';
-      const name = document.createElement('a');
-      name.textContent = fileName;
-      name.href = '#';
-      name.title = 'Cliquer pour copier le nom';
-      name.addEventListener('click', (e) => { e.preventDefault(); navigator.clipboard?.writeText(fileName); });
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = 'Copier';
-      copyBtn.addEventListener('click', (e) => { e.stopPropagation(); navigator.clipboard?.writeText(fileName); });
-      el.appendChild(name);
-      el.appendChild(copyBtn);
-      labelsLayer.appendChild(el);
-      return el;
-    }
+function makeLabel(fileName) {
+  const el = document.createElement('div');
+  el.className = 'label';
+
+  // Clickable filename (also copies)
+  const name = document.createElement('a');
+  name.textContent = fileName;
+  name.href = '#';
+  name.title = 'Click to copy filename';
+
+  // Copy button
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'Copier';
+  copyBtn.type = 'button';
+
+  // Unified copy handler (used by both name + button)
+  const giveFeedback = () => {
+    const originalText = copyBtn.textContent;
+
+    // Button feedback
+    copyBtn.textContent = 'Copied!';
+    copyBtn.classList.add('copied', 'flash');
+
+    // Filename feedback
+    name.classList.add('copied');
+
+    // Revert after 1s
+    setTimeout(() => {
+      copyBtn.textContent = originalText;
+      copyBtn.classList.remove('copied', 'flash');
+      name.classList.remove('copied');
+    }, 1000);
+  };
+
+  const copyAction = (e) => {
+    e.preventDefault();
+    navigator.clipboard?.writeText(fileName);
+    giveFeedback();
+  };
+
+  name.addEventListener('click', copyAction);
+  copyBtn.addEventListener('click', copyAction);
+
+  el.appendChild(name);
+  el.appendChild(copyBtn);
+  labelsLayer.appendChild(el);
+  return el;
+}
+
 
     // --- Normalize an imported actor: reset rotation, uniform scale to target height, drop to ground ---
     function autoScaleToHeight(root) {
@@ -340,4 +446,5 @@
   </script>
 </body>
 </html>
+
 
