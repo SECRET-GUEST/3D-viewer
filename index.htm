@@ -170,7 +170,7 @@
       updateStats();
     }
 
-    function updateStats() { stats.textContent = objects.length + ' fichiers'; }
+    function updateStats() { stats.textContent = objects.length + ' files'; }
 
     // --- Arrange actors on a centered stage layout (roughly a square distribution) ---
     function layoutActors() {
@@ -241,7 +241,7 @@
 
         // Button feedback
         copyBtn.textContent = 'Copied!';
-        copyBtn.classList.add('copied', 'flash');
+        copyBtn.classList.add('copied');
 
         // Filename feedback
         name.classList.add('copied');
@@ -374,3 +374,4 @@
   </script>
 </body>
 </html>
+
