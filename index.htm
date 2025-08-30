@@ -4,6 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Animation Viewer</title>
+
+  <!-- Import map: tells addons where "three" lives -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+
+  
   <style>
     html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; background: #0b0f14; color: #d7e2ee; }
     #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
@@ -33,6 +45,9 @@
     .label a { color:#9ad1ff; text-decoration: none; }
     .label a:hover { text-decoration: underline; }
   </style>
+
+
+  
 </head>
 <body>
   <div id="app">
@@ -55,13 +70,15 @@
   </div>
   <div id="labels"></div>
 
+
   <script type="module">
     // --- Direct CDN imports (safe for GitHub Pages) ---
-    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-    import { FBXLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+    import * as THREE from "three";
 
+    // Addons en URL complète (fonctionnent très bien avec l’import map ci-dessus)
+    import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+    import { FBXLoader }   from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
+    import { GLTFLoader }  from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
     // --- DOM refs & runtime state ---
     const app = document.getElementById('app');
@@ -380,5 +397,6 @@
   </script>
 </body>
 </html>
+
 
 
