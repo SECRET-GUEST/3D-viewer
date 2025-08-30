@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Animation Viewer</title>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; background: #0b0f14; color: #d7e2ee; }
+    #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
+    header { display: flex; gap: 12px; align-items: center; padding: 10px 12px; background: #111821; border-bottom: 1px solid #1e2a38; }
+    header h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; color: #eaf2fb; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .control { display: inline-flex; align-items: center; gap: 6px; background: #0f1620; border: 1px solid #1e2a38; border-radius: 10px; padding: 6px 10px; }
+    .control label { font-size: 12px; color: #99acbf; }
+    .control input[type="range"] { width: 160px; }
+    .control input[type="number"] { width: 72px; background: #0b0f14; color: #eaf2fb; border: 1px solid #243244; border-radius: 6px; padding: 4px 6px; }
+    .btn { cursor: pointer; border: 1px solid #1e2a38; background: #0f1620; color: #eaf2fb; border-radius: 10px; padding: 7px 12px; font-weight: 600; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: #1c2a3a; border-color: #2b415a; }
+    .file { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed #2b415a; background: #0b1119; padding: 8px 10px; border-radius: 10px; }
+    .file input { display: none; }
+    .file label { cursor: pointer; font-weight: 600; }
+    #drop { position: absolute; inset: 0; border: 2px dashed transparent; border-radius: 16px; transition: border-color 0.2s ease; pointer-events: none; }
+    #drop.drag { border-color: #3a7bd5; background: rgba(58, 123, 213, 0.06); }
+    #stats { margin-left: auto; font-size: 12px; color: #9db2c7; }
+    canvas { display: block; width: 100%; height: 100%; /* prevent wheel/pinch interactions from reaching the page */ touch-action: none; }
+
+    /* Floating filename badges overlayed above each actor */
+    #labels { position: fixed; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+    .label { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; background: rgba(13, 19, 27, 0.8); border: 1px solid #2b415a; border-radius: 8px; padding: 4px 8px; font-size: 12px; color: #d7e2ee; white-space: nowrap; }
+    .label button { margin-left: 8px; font-size: 11px; padding: 2px 6px; background:#1c2a3a; border:1px solid #2b415a; color:#eaf2fb; border-radius:6px; cursor:pointer; }
+    .label a { color:#9ad1ff; text-decoration: none; }
+    .label a:hover { text-decoration: underline; }
+  </style>
+
+  <!-- Import map for bare module specifiers (three & addons) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>3D Animation Viewer</h1>
+      <div class="file">
+        <label for="files">Ouvrir des fichiers (.fbx, .glb)</label>
+        <input id="files" type="file" accept=".fbx,.glb" multiple />
+      </div>
+      <div class="controls">
+        <div class="control"><label>Espacement</label><input id="spacing" type="range" min="2" max="12" step="0.1" value="5"><input id="spacingNum" type="number" min="2" max="50" step="0.1" value="5"></div>
+        <div class="control"><label>Hauteur cible (m)</label><input id="height" type="range" min="0.5" max="3" step="0.05" value="1.8"><input id="heightNum" type="number" min="0.5" max="4" step="0.05" value="1.8"></div>
+        <div class="control"><label>Vitesse</label><input id="speed" type="range" min="0" max="2" step="0.01" value="1"><input id="speedNum" type="number" min="0" max="5" step="0.01" value="1"></div>
+        <button id="play" class="btn primary">Pause</button>
+        <button id="clear" class="btn">Vider</button>
+      </div>
+      <div id="stats">0 fichiers</div>
+    </header>
+    <div id="drop"></div>
+  </div>
+  <div id="labels"></div>
+
+  <script type="module">
+    // ==============================
+    // 3D Animation Viewer (no brand)
+    // - Loads local FBX/GLB files
+    // - Auto-arranges actors on a stage-like layout
+    // - Plays first animation clip on loop (if any)
+    // - Mouse wheel zoom is disabled
+    // - Filename badges are clickable/copyable
+    // ==============================
+
+    // --- Imports ---
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // --- DOM refs & runtime state ---
+    const app = document.getElementById('app');
+    const labelsLayer = document.getElementById('labels');
+    let renderer, scene, camera, controls;          // Three.js essentials
+    let mixers = [];                                 // Active AnimationMixers
+    let objects = [];                                // Staged actors: { root, labelEl, anchor }
+    let playing = true;                              // Global play/pause flag
+
+    // --- UI controls ---
+    const spacing   = document.getElementById('spacing');   // horizontal/vertical spacing between actors
+    const spacingNum= document.getElementById('spacingNum');
+    const height    = document.getElementById('height');    // target actor height (meters)
+    const heightNum = document.getElementById('heightNum');
+    const speed     = document.getElementById('speed');     // global animation speed multiplier
+    const speedNum  = document.getElementById('speedNum');
+    const btnPlay   = document.getElementById('play');
+    const btnClear  = document.getElementById('clear');
+    const stats     = document.getElementById('stats');
+    const input     = document.getElementById('files');
+    const drop      = document.getElementById('drop');
+
+    // --- Init scene, camera, controls, lights, helpers ---
+    function init() {
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight - document.querySelector('header').offsetHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      // Block wheel on canvas so the page doesn't scroll and the camera can't zoom
+      renderer.domElement.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+      app.appendChild(renderer.domElement);
+
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b0f14);
+
+      // Camera (perspective gives a natural view; we keep it simple)
+      camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / (window.innerHeight - document.querySelector('header').offsetHeight),
+        0.1,
+        1000
+      );
+      camera.position.set(10, 7, 12);
+
+      // Controls (orbit with damping, but NO manual zoom)
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 1, 0);
+      controls.enableDamping = true;
+      controls.enableZoom = false; // << disable mouse/touch zoom
+
+      // Lighting
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+      const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+      dir.position.set(4, 10, 6);
+      dir.castShadow = false;
+      scene.add(dir);
+
+      // Visual references: ground & stage grid
+      scene.add(new THREE.GridHelper(200, 200, 0x31465e, 0x1b2836));
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshStandardMaterial({ color: 0x0d131b, metalness: 0, roughness: 1 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Resize + start render loop
+      window.addEventListener('resize', onResize);
+      animate();
+    }
+
+    // --- Resize handler keeps camera & renderer in sync with header height ---
+    function onResize() {
+      const headerH = document.querySelector('header').offsetHeight;
+      camera.aspect = window.innerWidth / (window.innerHeight - headerH);
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight - headerH);
+    }
+
+    // --- Main render loop (+ global animation speed control) ---
+    const clock = new THREE.Clock();
+    function animate() {
+      function tick() {
+        const delta = clock.getDelta() * parseFloat(speed.value);
+        if (playing) for (const m of mixers) m.update(delta);
+        controls.update();
+        renderer.render(scene, camera);
+        updateLabelsScreenPositions();
+        requestAnimationFrame(tick);
+      }
+      tick();
+    }
+
+    // --- Clear all actors from the stage ---
+    function clearScene() {
+      for (const o of objects) {
+        scene.remove(o.root);
+        if (o.labelEl) o.labelEl.remove();
+      }
+      objects = [];
+      for (const m of mixers) m.uncacheRoot(m.getRoot());
+      mixers = [];
+      updateStats();
+    }
+
+    function updateStats() { stats.textContent = objects.length + ' fichiers'; }
+
+    // --- Arrange actors on a centered stage layout (roughly a square distribution) ---
+    function layoutActors() {
+      const n = objects.length;
+      if (n === 0) return;
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      const s = parseFloat(spacing.value);
+      const centerOffsetX = (cols - 1) * s * 0.5;
+      const centerOffsetZ = (rows - 1) * s * 0.5;
+
+      // Position each actor; place label anchor slightly above head height
+      objects.forEach((entry, i) => {
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        entry.root.position.x = c * s - centerOffsetX;
+        entry.root.position.z = r * s - centerOffsetZ;
+        entry.anchor.set(0, parseFloat(height.value) * 1.05, 0);
+      });
+
+      // Reframe camera to fit the whole stage footprint (simple heuristic)
+      const diag = Math.hypot(cols * s, rows * s);
+      const dist = diag * 0.9;
+      camera.position.set(dist, dist * 0.6, dist);
+      controls.target.set(0, parseFloat(height.value) * 0.9, 0);
+      controls.update();
+      updateLabelsScreenPositions();
+    }
+
+    // --- 2D overlay helpers: world -> screen for label placement ---
+    function worldToScreen(pos) {
+      const vector = pos.clone().project(camera);
+      const headerH = document.querySelector('header').offsetHeight;
+      const halfW = window.innerWidth / 2;
+      const halfH = (window.innerHeight - headerH) / 2;
+      return { x: (vector.x * halfW) + halfW, y: (-vector.y * halfH) + halfH + headerH };
+    }
+
+    function updateLabelsScreenPositions() {
+      for (const { root, labelEl, anchor } of objects) {
+        if (!labelEl) continue;
+        const world = anchor.clone().applyMatrix4(root.matrixWorld);
+        const screen = worldToScreen(world);
+        labelEl.style.left = screen.x + 'px';
+        labelEl.style.top = screen.y + 'px';
+      }
+    }
+
+    // --- Small UI badge with filename + copy-to-clipboard ---
+    function makeLabel(fileName) {
+      const el = document.createElement('div');
+      el.className = 'label';
+      const name = document.createElement('a');
+      name.textContent = fileName;
+      name.href = '#';
+      name.title = 'Cliquer pour copier le nom';
+      name.addEventListener('click', (e) => { e.preventDefault(); navigator.clipboard?.writeText(fileName); });
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copier';
+      copyBtn.addEventListener('click', (e) => { e.stopPropagation(); navigator.clipboard?.writeText(fileName); });
+      el.appendChild(name);
+      el.appendChild(copyBtn);
+      labelsLayer.appendChild(el);
+      return el;
+    }
+
+    // --- Normalize an imported actor: reset rotation, uniform scale to target height, drop to ground ---
+    function autoScaleToHeight(root) {
+      const targetH = parseFloat(height.value);
+      const box = new THREE.Box3().setFromObject(root);
+      if (!isFinite(box.max.y - box.min.y) || (box.max.y - box.min.y) <= 0.0001) return;
+      const h = box.max.y - box.min.y;
+      const scale = targetH / h;
+      root.scale.setScalar(scale);
+      // Drop to ground plane (Y=0)
+      const box2 = new THREE.Box3().setFromObject(root);
+      const minY = box2.min.y;
+      root.position.y -= minY;
+    }
+
+    function normalizeObject(root) {
+      root.rotation.set(0, 0, 0);
+      autoScaleToHeight(root);
+      // Keep skinned meshes always rendered (avoid culling issues on animated rigs)
+      root.traverse((child) => { if (child.isSkinnedMesh) child.frustumCulled = false; });
+    }
+
+    // --- Animation: play first available clip on loop ---
+    function playFirstClip(root, animations) {
+      if (!animations || animations.length === 0) return;
+      const mixer = new THREE.AnimationMixer(root);
+      mixers.push(mixer);
+      const clip = animations[0];
+      const action = mixer.clipAction(clip);
+      action.reset();
+      action.loop = THREE.LoopRepeat;
+      action.clampWhenFinished = false;
+      action.enabled = true;
+      action.play();
+    }
+
+    // --- Load a single file (FBX/GLB) and stage it ---
+    async function loadFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const url = URL.createObjectURL(file);
+      try {
+        if (ext === 'fbx') {
+          const fbx = await new FBXLoader().loadAsync(url);
+          URL.revokeObjectURL(url);
+          const root = new THREE.Group();
+          root.name = file.name;
+          root.add(fbx);
+          normalizeObject(root);
+          scene.add(root);
+          const labelEl = makeLabel(file.name);
+          const anchor = new THREE.Vector3(0, 0, 0);
+          objects.push({ root, labelEl, anchor });
+          if (fbx.animations && fbx.animations.length) playFirstClip(root, fbx.animations);
+        } else if (ext === 'glb' || ext === 'gltf') {
+          const gltf = await new GLTFLoader().loadAsync(url);
+          URL.revokeObjectURL(url);
+          const root = gltf.scene || new THREE.Group();
+          root.name = file.name;
+          normalizeObject(root);
+          scene.add(root);
+          const labelEl = makeLabel(file.name);
+          const anchor = new THREE.Vector3(0, 0, 0);
+          objects.push({ root, labelEl, anchor });
+          playFirstClip(root, gltf.animations);
+        } else {
+          URL.revokeObjectURL(url);
+          console.warn('Extension non supportée:', ext);
+        }
+      } catch (e) {
+        URL.revokeObjectURL(url);
+        console.error('Erreur de chargement', file.name, e);
+      }
+      updateStats();
+      layoutActors();
+    }
+
+    // --- Load multiple files with a stable, alphabetical order ---
+    async function loadFiles(files) {
+      const ordered = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+      for (const f of ordered) await loadFile(f);
+    }
+
+    // --- UI bindings ---
+    input.addEventListener('change', (e) => loadFiles(e.target.files));
+    spacing.addEventListener('input', () => { spacingNum.value = spacing.value; layoutActors(); });
+    spacingNum.addEventListener('input', () => { spacing.value = spacingNum.value; layoutActors(); });
+    height.addEventListener('input', () => { heightNum.value = height.value; objects.forEach(o => autoScaleToHeight(o.root)); layoutActors(); });
+    heightNum.addEventListener('input', () => { height.value = heightNum.value; objects.forEach(o => autoScaleToHeight(o.root)); layoutActors(); });
+    speed.addEventListener('input', () => { speedNum.value = speed.value; });
+    speedNum.addEventListener('input', () => { speed.value = speedNum.value; });
+
+    btnPlay.addEventListener('click', () => { playing = !playing; btnPlay.textContent = playing ? 'Pause' : 'Lecture'; });
+    btnClear.addEventListener('click', () => { clearScene(); });
+
+    // --- Drag & drop local files into the stage ---
+    function prevent(e) { e.preventDefault(); e.stopPropagation(); }
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => document.addEventListener(evt, prevent));
+    document.addEventListener('dragover', () => drop.classList.add('drag'));
+    document.addEventListener('dragleave', () => drop.classList.remove('drag'));
+    document.addEventListener('drop', (e) => { drop.classList.remove('drag'); const files = e.dataTransfer.files; if (files && files.length) loadFiles(files); });
+
+    // --- Boot ---
+    init();
+  </script>
+</body>
+</html>
