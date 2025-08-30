@@ -1,8 +1,6 @@
 [![STATUS](https://img.shields.io/badge/Status-Alpha-orange)]()
 [![three.js](https://img.shields.io/badge/three.js-0.160.0-blue)]()
 [![JavaScript](https://img.shields.io/badge/Language-JavaScript-yellow)]()
-[![License](https://img.shields.io/badge/License-MIT-green)]()
-
 
 ```
 ██████╗ ██████╗     ██╗   ██╗██╗███████╗██╗    ██╗███████╗██████╗ 
