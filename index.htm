@@ -91,9 +91,15 @@
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight - document.querySelector('header').offsetHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      // Block wheel on canvas so the page doesn't scroll and the camera can't zoom
-      renderer.domElement.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+
+      // Lock zoom/scroll from mouse wheel and touch gestures
+      renderer.domElement.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+      renderer.domElement.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
+      renderer.domElement.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+
       app.appendChild(renderer.domElement);
+
+
 
       // Scene
       scene = new THREE.Scene();
@@ -374,4 +380,5 @@
   </script>
 </body>
 </html>
+
 
