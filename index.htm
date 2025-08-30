@@ -5,106 +5,105 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Animation Viewer</title>
 
-  
-<style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
-    background: #0b0f14;
-    color: #d7e2ee;
-  }
-  #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
-  header {
-    display: flex; gap: 12px; align-items: center;
-    padding: 10px 12px; background: #111821; border-bottom: 1px solid #1e2a38;
-  }
-  header h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; color: #eaf2fb; }
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .control { display: inline-flex; align-items: center; gap: 6px; background: #0f1620; border: 1px solid #1e2a38; border-radius: 10px; padding: 6px 10px; }
-  .control label { font-size: 12px; color: #99acbf; }
-  .control input[type="range"] { width: 160px; }
-  .control input[type="number"] {
-    width: 72px; background: #0b0f14; color: #eaf2fb;
-    border: 1px solid #243244; border-radius: 6px; padding: 4px 6px;
-  }
-  .btn {
-    cursor: pointer; border: 1px solid #1e2a38; background: #0f1620; color: #eaf2fb;
-    border-radius: 10px; padding: 7px 12px; font-weight: 600;
-  }
-  .btn:active { transform: translateY(1px); }
-  .btn.primary { background: #1c2a3a; border-color: #2b415a; }
-  .file {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px dashed #2b415a; background: #0b1119; padding: 8px 10px; border-radius: 10px;
-  }
-  .file input { display: none; }
-  .file label { cursor: pointer; font-weight: 600; }
-  #drop {
-    position: absolute; inset: 0; border: 2px dashed transparent; border-radius: 16px;
-    transition: border-color 0.2s ease; pointer-events: none;
-  }
-  #drop.drag { border-color: #3a7bd5; background: rgba(58, 123, 213, 0.06); }
-  #stats { margin-left: auto; font-size: 12px; color: #9db2c7; }
-  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  <!--
+    ==============================
+    Styles & Visual Design
+    - Clean dark UI
+    - Floating labels over actors
+    - Copy feedback animation
+    ==============================
+  -->
+  <style>
+    /* ===== Base layout & theme ===== */
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: #0b0f14;
+      color: #d7e2ee;
+    }
+    #app { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; }
+    header {
+      display: flex; gap: 12px; align-items: center;
+      padding: 10px 12px; background: #111821; border-bottom: 1px solid #1e2a38;
+    }
+    header h1 { font-size: 16px; font-weight: 600; margin: 0 8px 0 0; color: #eaf2fb; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .control { display: inline-flex; align-items: center; gap: 6px; background: #0f1620; border: 1px solid #1e2a38; border-radius: 10px; padding: 6px 10px; }
+    .control label { font-size: 12px; color: #99acbf; }
+    .control input[type="range"] { width: 160px; }
+    .control input[type="number"] {
+      width: 72px; background: #0b0f14; color: #eaf2fb;
+      border: 1px solid #243244; border-radius: 6px; padding: 4px 6px;
+    }
+    .btn {
+      cursor: pointer; border: 1px solid #1e2a38; background: #0f1620; color: #eaf2fb;
+      border-radius: 10px; padding: 7px 12px; font-weight: 600;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: #1c2a3a; border-color: #2b415a; }
+    .file {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px dashed #2b415a; background: #0b1119; padding: 8px 10px; border-radius: 10px;
+    }
+    .file input { display: none; }
+    .file label { cursor: pointer; font-weight: 600; }
+    #drop {
+      position: absolute; inset: 0; border: 2px dashed transparent; border-radius: 16px;
+      transition: border-color 0.2s ease; pointer-events: none;
+    }
+    #drop.drag { border-color: #3a7bd5; background: rgba(58, 123, 213, 0.06); }
+    #stats { margin-left: auto; font-size: 12px; color: #9db2c7; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-  /* ===== Floating filename badges ===== */
-  #labels {
-    position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-    pointer-events: none; /* allow clicks only on children */
-  }
-  .label {
-    position: absolute; transform: translate(-50%, -50%);
-    pointer-events: auto; background: rgba(13, 19, 27, 0.8);
-    border: 1px solid #2b415a; border-radius: 8px;
-    padding: 4px 8px; font-size: 12px; color: #d7e2ee; white-space: nowrap;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .label a {
-    color: #9ad1ff; text-decoration: none; font-weight: 600;
-  }
-  .label a:hover { text-decoration: underline; }
-  .label button {
-    font-size: 11px; padding: 2px 8px; line-height: 1.6;
-    background: #1c2a3a; border: 1px solid #2b415a; color: #eaf2fb;
-    border-radius: 6px; cursor: pointer;
-    transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-  }
-  .label button:hover { transform: translateY(-1px); }
-  .label button:active { transform: translateY(0); }
+    /* ===== Floating filename badges ===== */
+    #labels {
+      position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+      pointer-events: none; /* allow clicks only on children */
+    }
+    .label {
+      position: absolute; transform: translate(-50%, -50%);
+      pointer-events: auto; background: rgba(13, 19, 27, 0.8);
+      border: 1px solid #2b415a; border-radius: 8px;
+      padding: 4px 8px; font-size: 12px; color: #d7e2ee; white-space: nowrap;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .label a {
+      color: #9ad1ff; text-decoration: none; font-weight: 600;
+    }
+    .label a:hover { text-decoration: underline; }
+    .label button {
+      font-size: 11px; padding: 2px 8px; line-height: 1.6;
+      background: #1c2a3a; border: 1px solid #2b415a; color: #eaf2fb;
+      border-radius: 6px; cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .label button:hover { transform: translateY(-1px); }
+    .label button:active { transform: translateY(0); }
 
-  /* ===== Copy feedback styles ===== */
-  /* Quick green flash + subtle scale when copied */
-  .label button.copied {
-    background: #2b9957 !important;
-    border-color: #2b9957 !important;
-    color: #ffffff !important;
-    transform: scale(1.05);
-  }
+    /* ===== Copy feedback styles ===== */
+    .label button.copied {
+      background: #2b9957 !important;
+      border-color: #2b9957 !important;
+      color: #ffffff !important;
+      transform: scale(1.05);
+    }
+    .label a.copied {
+      color: #b4f5c9 !important;
+      text-shadow: 0 0 6px rgba(43, 153, 87, 0.6);
+    }
+    @keyframes copiedFlash {
+      0% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
+      40% { box-shadow: 0 0 14px rgba(43, 153, 87, 0.7); }
+      100% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
+    }
+    .label button.copied.flash { animation: copiedFlash 300ms ease-in-out; }
 
-  /* Optional: small pulse highlight on the filename text as well */
-  .label a.copied {
-    color: #b4f5c9 !important;
-    text-shadow: 0 0 6px rgba(43, 153, 87, 0.6);
-  }
-
-  /* Short-lived glow animation fallback (if you prefer a keyframe effect) */
-  @keyframes copiedFlash {
-    0% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
-    40% { box-shadow: 0 0 14px rgba(43, 153, 87, 0.7); }
-    100% { box-shadow: 0 0 0 rgba(43, 153, 87, 0); }
-  }
-  .label button.copied.flash {
-    animation: copiedFlash 300ms ease-in-out;
-  }
-
-  /* Respect reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    .label button, .label button.copied { transition: none; }
-    .label button.copied.flash { animation: none; }
-  }
-</style>
-
+    @media (prefers-reduced-motion: reduce) {
+      .label button, .label button.copied { transition: none; }
+      .label button.copied.flash { animation: none; }
+    }
+  </style>
 </head>
 <body>
   <div id="app">
@@ -127,27 +126,53 @@
   </div>
   <div id="labels"></div>
 
+  <!--
+    ==============================
+    Resilient ESM Loader (GitHub Pages–proof)
+    - Tries unpkg first
+    - Falls back to jsDelivr if needed
+    - No import maps → fewer surprises on Pages / Safari
+    ==============================
+  -->
   <script type="module">
-    // --- Direct CDN imports (safe for GitHub Pages) ---
-    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-    import { FBXLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+    // -------- CDN Module Loader with Fallback --------
+    const CDN_PRIMARY = "https://unpkg.com/three@0.160.0";
+    const CDN_FALLBACK = "https://cdn.jsdelivr.net/npm/three@0.160.0";
 
-    // --- DOM refs & runtime state ---
+    async function loadModules(base) {
+      // Import exact matching versions for three + addons (FBX/GLTF/Controls)
+      const THREE = await import(`${base}/build/three.module.js`);
+      const { OrbitControls } = await import(`${base}/examples/jsm/controls/OrbitControls.js`);
+      const { FBXLoader }   = await import(`${base}/examples/jsm/loaders/FBXLoader.js`);
+      const { GLTFLoader }  = await import(`${base}/examples/jsm/loaders/GLTFLoader.js`);
+      return { THREE, OrbitControls, FBXLoader, GLTFLoader };
+    }
+
+    let mods;
+    try {
+      mods = await loadModules(CDN_PRIMARY);
+    } catch (e) {
+      console.warn("[3D Animation Viewer] unpkg failed, trying jsDelivr…", e);
+      mods = await loadModules(CDN_FALLBACK);
+    }
+
+    // Destructure loaded modules (scoped, no globals)
+    const { THREE, OrbitControls, FBXLoader, GLTFLoader } = mods;
+
+    // -------- DOM refs & runtime state --------
     const app = document.getElementById('app');
     const labelsLayer = document.getElementById('labels');
-    let renderer, scene, camera, controls;          // Three.js essentials
-    let mixers = [];                                 // Active AnimationMixers
-    let objects = [];                                // Staged actors: { root, labelEl, anchor }
-    let playing = true;                              // Global play/pause flag
+    let renderer, scene, camera, controls;   // Three.js essentials
+    let mixers = [];                          // Active AnimationMixers
+    let objects = [];                         // Actors on stage: { root, labelEl, anchor }
+    let playing = true;                       // Global play/pause flag
 
-    // --- UI controls ---
-    const spacing   = document.getElementById('spacing');   // horizontal/vertical spacing between actors
+    // UI controls
+    const spacing   = document.getElementById('spacing');   // layout spacing
     const spacingNum= document.getElementById('spacingNum');
     const height    = document.getElementById('height');    // target actor height (meters)
     const heightNum = document.getElementById('heightNum');
-    const speed     = document.getElementById('speed');     // global animation speed multiplier
+    const speed     = document.getElementById('speed');     // animation speed multiplier
     const speedNum  = document.getElementById('speedNum');
     const btnPlay   = document.getElementById('play');
     const btnClear  = document.getElementById('clear');
@@ -155,14 +180,14 @@
     const input     = document.getElementById('files');
     const drop      = document.getElementById('drop');
 
-    // --- Init scene, camera, controls, lights, helpers ---
+    // -------- Scene / Camera / Controls / Lights / Helpers --------
     function init() {
       // Renderer
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight - document.querySelector('header').offsetHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      // Block wheel on canvas so the page doesn't scroll and the camera can't zoom
+      // Disable wheel zoom & page scroll when over canvas
       renderer.domElement.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
       app.appendChild(renderer.domElement);
 
@@ -170,20 +195,19 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0b0f14);
 
-      // Camera (perspective gives a natural view; we keep it simple)
+      // Camera (simple perspective)
       camera = new THREE.PerspectiveCamera(
         55,
         window.innerWidth / (window.innerHeight - document.querySelector('header').offsetHeight),
-        0.1,
-        1000
+        0.1, 1000
       );
       camera.position.set(10, 7, 12);
 
-      // Controls (orbit with damping, but NO manual zoom)
+      // Controls (orbit with damping; manual zoom disabled)
       controls = new OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 1, 0);
       controls.enableDamping = true;
-      controls.enableZoom = false; // << disable mouse/touch zoom
+      controls.enableZoom = false;
 
       // Lighting
       scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -192,7 +216,7 @@
       dir.castShadow = false;
       scene.add(dir);
 
-      // Visual references: ground & stage grid
+      // Visual references: grid + ground
       scene.add(new THREE.GridHelper(200, 200, 0x31465e, 0x1b2836));
       const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(200, 200),
@@ -202,12 +226,12 @@
       ground.receiveShadow = true;
       scene.add(ground);
 
-      // Resize + start render loop
+      // Resize & start loop
       window.addEventListener('resize', onResize);
       animate();
     }
 
-    // --- Resize handler keeps camera & renderer in sync with header height ---
+    // Keep camera & renderer in sync with header height on resize
     function onResize() {
       const headerH = document.querySelector('header').offsetHeight;
       camera.aspect = window.innerWidth / (window.innerHeight - headerH);
@@ -215,7 +239,7 @@
       renderer.setSize(window.innerWidth, window.innerHeight - headerH);
     }
 
-    // --- Main render loop (+ global animation speed control) ---
+    // -------- Main render loop --------
     const clock = new THREE.Clock();
     function animate() {
       function tick() {
@@ -229,7 +253,7 @@
       tick();
     }
 
-    // --- Clear all actors from the stage ---
+    // -------- Stage management --------
     function clearScene() {
       for (const o of objects) {
         scene.remove(o.root);
@@ -241,19 +265,20 @@
       updateStats();
     }
 
-    function updateStats() { stats.textContent = objects.length + ' fichiers'; }
+    function updateStats() { stats.textContent = objects.length + ' files'; }
 
-    // --- Arrange actors on a centered stage layout (roughly a square distribution) ---
+    // Centered stage layout (roughly square distribution)
     function layoutActors() {
       const n = objects.length;
       if (n === 0) return;
+
       const cols = Math.ceil(Math.sqrt(n));
       const rows = Math.ceil(n / cols);
       const s = parseFloat(spacing.value);
       const centerOffsetX = (cols - 1) * s * 0.5;
       const centerOffsetZ = (rows - 1) * s * 0.5;
 
-      // Position each actor; place label anchor slightly above head height
+      // Place each actor and move label anchor slightly above head height
       objects.forEach((entry, i) => {
         const c = i % cols;
         const r = Math.floor(i / cols);
@@ -262,7 +287,7 @@
         entry.anchor.set(0, parseFloat(height.value) * 1.05, 0);
       });
 
-      // Reframe camera to fit the whole stage footprint (simple heuristic)
+      // Reframe camera to cover the whole stage footprint (simple heuristic)
       const diag = Math.hypot(cols * s, rows * s);
       const dist = diag * 0.9;
       camera.position.set(dist, dist * 0.6, dist);
@@ -271,7 +296,7 @@
       updateLabelsScreenPositions();
     }
 
-    // --- 2D overlay helpers: world -> screen for label placement ---
+    // -------- 2D overlay helpers (world → screen) --------
     function worldToScreen(pos) {
       const vector = pos.clone().project(camera);
       const headerH = document.querySelector('header').offsetHeight;
@@ -290,58 +315,52 @@
       }
     }
 
-    // --- Small UI badge with filename + copy-to-clipboard ---
-function makeLabel(fileName) {
-  const el = document.createElement('div');
-  el.className = 'label';
+    // -------- Label UI (filename + copy) --------
+    function makeLabel(fileName) {
+      const el = document.createElement('div');
+      el.className = 'label';
 
-  // Clickable filename (also copies)
-  const name = document.createElement('a');
-  name.textContent = fileName;
-  name.href = '#';
-  name.title = 'Click to copy filename';
+      // Clickable filename (also copies)
+      const name = document.createElement('a');
+      name.textContent = fileName;
+      name.href = '#';
+      name.title = 'Click to copy filename';
 
-  // Copy button
-  const copyBtn = document.createElement('button');
-  copyBtn.textContent = 'Copier';
-  copyBtn.type = 'button';
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copier';
+      copyBtn.type = 'button';
 
-  // Unified copy handler (used by both name + button)
-  const giveFeedback = () => {
-    const originalText = copyBtn.textContent;
+      // Shared feedback routine
+      const giveFeedback = () => {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.classList.add('copied', 'flash');
+        name.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('copied', 'flash');
+          name.classList.remove('copied');
+        }, 1000);
+      };
 
-    // Button feedback
-    copyBtn.textContent = 'Copied!';
-    copyBtn.classList.add('copied', 'flash');
+      // Shared copy action (name + button)
+      const copyAction = (e) => {
+        e.preventDefault();
+        navigator.clipboard?.writeText(fileName);
+        giveFeedback();
+      };
 
-    // Filename feedback
-    name.classList.add('copied');
+      name.addEventListener('click', copyAction);
+      copyBtn.addEventListener('click', copyAction);
 
-    // Revert after 1s
-    setTimeout(() => {
-      copyBtn.textContent = originalText;
-      copyBtn.classList.remove('copied', 'flash');
-      name.classList.remove('copied');
-    }, 1000);
-  };
+      el.appendChild(name);
+      el.appendChild(copyBtn);
+      labelsLayer.appendChild(el);
+      return el;
+    }
 
-  const copyAction = (e) => {
-    e.preventDefault();
-    navigator.clipboard?.writeText(fileName);
-    giveFeedback();
-  };
-
-  name.addEventListener('click', copyAction);
-  copyBtn.addEventListener('click', copyAction);
-
-  el.appendChild(name);
-  el.appendChild(copyBtn);
-  labelsLayer.appendChild(el);
-  return el;
-}
-
-
-    // --- Normalize an imported actor: reset rotation, uniform scale to target height, drop to ground ---
+    // -------- Normalization (scale to target height + drop to ground) --------
     function autoScaleToHeight(root) {
       const targetH = parseFloat(height.value);
       const box = new THREE.Box3().setFromObject(root);
@@ -349,7 +368,7 @@ function makeLabel(fileName) {
       const h = box.max.y - box.min.y;
       const scale = targetH / h;
       root.scale.setScalar(scale);
-      // Drop to ground plane (Y=0)
+      // Drop to ground (Y = 0)
       const box2 = new THREE.Box3().setFromObject(root);
       const minY = box2.min.y;
       root.position.y -= minY;
@@ -358,11 +377,11 @@ function makeLabel(fileName) {
     function normalizeObject(root) {
       root.rotation.set(0, 0, 0);
       autoScaleToHeight(root);
-      // Keep skinned meshes always rendered (avoid culling issues on animated rigs)
+      // Keep skinned meshes always rendered (avoid culling on animated rigs)
       root.traverse((child) => { if (child.isSkinnedMesh) child.frustumCulled = false; });
     }
 
-    // --- Animation: play first available clip on loop ---
+    // -------- Animation (play first clip on loop if available) --------
     function playFirstClip(root, animations) {
       if (!animations || animations.length === 0) return;
       const mixer = new THREE.AnimationMixer(root);
@@ -376,7 +395,7 @@ function makeLabel(fileName) {
       action.play();
     }
 
-    // --- Load a single file (FBX/GLB) and stage it ---
+    // -------- Loaders (FBX / GLB) --------
     async function loadFile(file) {
       const ext = file.name.split('.').pop().toLowerCase();
       const url = URL.createObjectURL(file);
@@ -394,7 +413,7 @@ function makeLabel(fileName) {
           objects.push({ root, labelEl, anchor });
           if (fbx.animations && fbx.animations.length) playFirstClip(root, fbx.animations);
         } else if (ext === 'glb' || ext === 'gltf') {
-          const gltf = await new GLTFLoader().loadAsync(url);
+          const gltf = await (new GLTFLoader()).loadAsync(url);
           URL.revokeObjectURL(url);
           const root = gltf.scene || new THREE.Group();
           root.name = file.name;
@@ -406,23 +425,22 @@ function makeLabel(fileName) {
           playFirstClip(root, gltf.animations);
         } else {
           URL.revokeObjectURL(url);
-          console.warn('Extension non supportée:', ext);
+          console.warn('Unsupported extension:', ext);
         }
       } catch (e) {
         URL.revokeObjectURL(url);
-        console.error('Erreur de chargement', file.name, e);
+        console.error('Load error', file.name, e);
       }
       updateStats();
       layoutActors();
     }
 
-    // --- Load multiple files with a stable, alphabetical order ---
     async function loadFiles(files) {
       const ordered = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
       for (const f of ordered) await loadFile(f);
     }
 
-    // --- UI bindings ---
+    // -------- UI bindings --------
     input.addEventListener('change', (e) => loadFiles(e.target.files));
     spacing.addEventListener('input', () => { spacingNum.value = spacing.value; layoutActors(); });
     spacingNum.addEventListener('input', () => { spacing.value = spacingNum.value; layoutActors(); });
@@ -434,17 +452,19 @@ function makeLabel(fileName) {
     btnPlay.addEventListener('click', () => { playing = !playing; btnPlay.textContent = playing ? 'Pause' : 'Lecture'; });
     btnClear.addEventListener('click', () => { clearScene(); });
 
-    // --- Drag & drop local files into the stage ---
+    // Drag & drop local files into the stage
     function prevent(e) { e.preventDefault(); e.stopPropagation(); }
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => document.addEventListener(evt, prevent));
     document.addEventListener('dragover', () => drop.classList.add('drag'));
     document.addEventListener('dragleave', () => drop.classList.remove('drag'));
-    document.addEventListener('drop', (e) => { drop.classList.remove('drag'); const files = e.dataTransfer.files; if (files && files.length) loadFiles(files); });
+    document.addEventListener('drop', (e) => {
+      drop.classList.remove('drag');
+      const files = e.dataTransfer.files;
+      if (files && files.length) loadFiles(files);
+    });
 
-    // --- Boot ---
+    // -------- Boot --------
     init();
   </script>
 </body>
 </html>
-
-
