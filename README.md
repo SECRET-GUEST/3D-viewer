@@ -35,7 +35,7 @@
   * Change animation speed
   * Play / Pause all
   * Clear stage
-* **No mouse zoom** (to avoid breaking framing).
+    
 * **Drag & drop** support.
 
 ---
